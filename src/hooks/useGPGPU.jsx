@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import simVert from '../shaders/simulationVert.glsl'
 import simFrag from '../shaders/simulationFrag.glsl'
 
-export const useGPGPU = (size, handPosRef) => {
+export const useGPGPU = (size, handDataRef) => {
     const { gl } = useThree()
 
     const scene = useMemo(() => new THREE.Scene(), [])
@@ -59,8 +59,8 @@ export const useGPGPU = (size, handPosRef) => {
         material.uniforms.uCurrentPosition.value = previous.texture
 
         // Hand tracking update
-        if (handPosRef && handPosRef.current) {
-            const { hands, isHandshake } = handPosRef.current
+        if (handDataRef && handDataRef.current) {
+            const { hands, isHandshake } = handDataRef.current
 
             // Use primary hand for gravity well if available
             if (hands.length > 0) {

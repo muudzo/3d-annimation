@@ -5,7 +5,7 @@ import { useGPGPU } from '../hooks/useGPGPU'
 import vertexShader from '../shaders/particlesVert.glsl'
 import fragmentShader from '../shaders/particlesFrag.glsl'
 
-export function Particles({ handPosRef }) {
+export function Particles({ handDataRef }) {
     const size = 1024; // Texture dimension -> 1024x1024=1M, 1024x512= 524k
     // User asked for 500k. 512 is almost enough (262k), 1024 is 1M. 
     // Wait, 1024x512 is 524,288. Perfect.
@@ -19,7 +19,7 @@ export function Particles({ handPosRef }) {
     // Let's stick to size=1024 (1M particles) or modify hook.
     // If I pass 1024 to useGPGPU, it creates 1024x1024.
     // 1M particles. Fine.
-    const texture = useGPGPU(size, handPosRef)
+    const texture = useGPGPU(size, handDataRef)
 
     const { geometry, material } = useMemo(() => {
         // Geometry
