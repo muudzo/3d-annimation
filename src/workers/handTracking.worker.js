@@ -18,7 +18,7 @@ const api = {
                     delegate: "CPU" // Use CPU to keep GPU free for rendering 500k particles
                 },
                 runningMode: "VIDEO",
-                numHands: 1
+                numHands: 2
             });
             console.log("MediaPipe HandLandmarker initialized in Worker");
             return true;
