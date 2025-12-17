@@ -15,8 +15,12 @@ export const useHandTracking = () => {
     })
 
     const videoRef = useRef(null)
+    const initRef = useRef(false) // Guard against React Strict Mode double-init
 
     useEffect(() => {
+        // CRITICAL: Prevent double initialization in React 18+ Strict Mode
+        if (initRef.current) return
+        initRef.current = true
         // Initialize Worker
         const worker = new Worker(new URL('../workers/handTracking.worker.js', import.meta.url), {
             type: 'module'

@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stats } from '@react-three/drei'
 import { Particles } from './Particles'
+import { DebugOverlay } from './DebugOverlay'
 import { useHandTracking } from '../hooks/useHandTracking'
 
 // M1 Optimization Note:
@@ -11,6 +12,8 @@ export const Experience = () => {
 
     return (
         <>
+            <DebugOverlay handDataRef={handPosRef} />
+
             <Canvas
                 dpr={1}
                 camera={{ position: [0, 0, 5], fov: 60 }}
