@@ -43,7 +43,10 @@ export const useHandTracking = () => {
                 console.log("🦈 HANDS FOUND:", results.multiHandLandmarks.length)
                 setDebugText(`Hands: ${results.multiHandLandmarks.length}`)
 
-                // Process landmarks
+                // Store RAW landmarks for gesture detection
+                const rawLandmarks = results.multiHandLandmarks
+
+                // Process landmarks for particle interaction
                 const processedHands = results.multiHandLandmarks.map(landmarks => {
                     const p = landmarks[9] // Middle finger knuckle
 
@@ -78,12 +81,14 @@ export const useHandTracking = () => {
 
                 handDataRef.current = {
                     hands: processedHands,
+                    rawLandmarks: rawLandmarks, // NEW: Raw data for gesture detection
                     distance,
                     isHandshake
                 }
             } else {
                 handDataRef.current = {
                     hands: [],
+                    rawLandmarks: [],
                     distance: 999,
                     isHandshake: false
                 }
