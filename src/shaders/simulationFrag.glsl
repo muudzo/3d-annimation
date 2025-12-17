@@ -3,8 +3,14 @@ uniform sampler2D uCurrentPosition;
 uniform vec3 uMouse;
 uniform float uShapeFactor; // 0.0 = Noise, 1.0 = Shape
 uniform vec2 uResolution;
+uniform float uInit; // 1.0 = Initial, 0.0 = Simulation
 
 varying vec2 vUv;
+
+// Random helper
+float rand(vec2 co){
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
 
 // Simplex/Curl Noise Helper (Simplified for brevity)
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -98,6 +104,18 @@ vec3 curlNoise(vec3 p) {
 }
 
 void main() {
+  // Initialization: Random positions
+  if (uInit > 0.5) {
+      vec2 seed = vUv + vec2(1.0, 1.0); // Simple seed
+      vec3 randomPos = vec3(
+          rand(seed) - 0.5,
+          rand(seed + 1.0) - 0.5,
+          rand(seed + 2.0) - 0.5
+      ) * 4.0; // Spread -2 to 2
+      gl_FragColor = vec4(randomPos, 1.0);
+      return;
+  }
+
   // Sample current position
   vec3 pos = texture2D(uCurrentPosition, vUv).xyz;
 

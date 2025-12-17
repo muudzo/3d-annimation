@@ -36,7 +36,8 @@ export const useGPGPU = (size, handPosRef) => {
                 uCurrentPosition: { value: null },
                 uMouse: { value: new THREE.Vector3(0, 0, 0) },
                 uShapeFactor: { value: 0 }, // 0 = Noise, 1 = Target
-                uResolution: { value: new THREE.Vector2(size, size) }
+                uResolution: { value: new THREE.Vector2(size, size) },
+                uInit: { value: 1 } // Start with init
             },
             vertexShader: simVert,
             fragmentShader: simFrag
@@ -71,6 +72,11 @@ export const useGPGPU = (size, handPosRef) => {
         gl.setRenderTarget(current)
         gl.render(scene, camera)
         gl.setRenderTarget(null)
+
+        // Turn off init after first frame
+        if (material.uniforms.uInit.value > 0) {
+            material.uniforms.uInit.value = 0
+        }
 
         // Swap buffers
         targets.current.current = previous
