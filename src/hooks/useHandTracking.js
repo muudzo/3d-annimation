@@ -55,14 +55,26 @@ export const useHandTracking = () => {
                 const result = await api.detect(Comlink.transfer(bitmap, [bitmap]), performance.now())
 
                 if (result && result.landmarks && result.landmarks.length > 0) {
-                    const hand = result.landmarks[0][9] // Middle finger knuckle (center-ish)
+                    const landmarks = result.landmarks[0]
+                    const hand = landmarks[9] // Middle finger knuckle
+                    const thumb = landmarks[4]
+                    const index = landmarks[8]
+
+                    // Calculate Pinch Distance (Euclidean)
+                    const pinchDist = Math.sqrt(
+                        Math.pow(thumb.x - index.x, 2) +
+                        Math.pow(thumb.y - index.y, 2)
+                    )
+                    const isPinching = pinchDist < 0.05 // Threshold
+
                     // normalized 0..1
                     // Invert simple logic or map to -1..1
                     // Screen: y is down. 3D: y is up.
                     handPosRef.current = {
                         x: (hand.x - 0.5) * 2.0, // -1 to 1
                         y: -(hand.y - 0.5) * 2.0, // 1 to -1
-                        z: 0 // hand.z is relative depth
+                        z: 0,
+                        isPinching: isPinching
                     }
                 }
             }

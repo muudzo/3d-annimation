@@ -60,12 +60,18 @@ export const useGPGPU = (size, handPosRef) => {
 
         // Hand tracking update
         if (handPosRef && handPosRef.current) {
-            // Assume handPosRef contains { x, y, z } in normalized coords
+            // Assume handPosRef contains { x, y, z } in normalized coords (-1 to 1)
             material.uniforms.uMouse.value.set(
                 handPosRef.current.x,
                 handPosRef.current.y,
                 handPosRef.current.z || 0
             )
+
+            // Morph Logic: Lerp uShapeFactor based on Pinch
+            // If pinching, go to 1 (Shape). Else 0 (Noise).
+            const targetShape = handPosRef.current.isPinching ? 1.0 : 0.0
+            // Simple Lerp: current + (target - current) * 0.1
+            material.uniforms.uShapeFactor.value += (targetShape - material.uniforms.uShapeFactor.value) * 0.1
         }
 
         // Render to 'current'

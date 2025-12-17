@@ -123,11 +123,9 @@ void main() {
   vec3 velocity = curlNoise(pos * 0.5 + uTime * 0.1) * 0.01;
   
   // 2. Mouse Interaction (Gravity Well)
-  // uMouse is normalized 0..1, map to world -1..1 usually? 
-  // Should check coordinate system in ParticleSystem. 
-  // Assuming particle world is roughly -2 to 2. 
-  // Hand tracking implies Screen Space.
-  vec3 mouseWorld = (uMouse - 0.5) * 4.0; // rudimentary mapping
+  // uMouse is normalized -1..1 (from JS)
+  // Map to World Space which is approx -2..2 (based on init spread)
+  vec3 mouseWorld = uMouse * 2.0; 
   vec3 dir = mouseWorld - pos;
   float dist = length(dir);
   if (dist < 1.5) {
