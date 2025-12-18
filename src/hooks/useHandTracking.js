@@ -2,163 +2,160 @@ import { useRef, useEffect, useState } from 'react'
 import { Hands } from '@mediapipe/hands'
 import { Camera } from '@mediapipe/camera_utils'
 
+/**
+ * useHandTracking - Failsafe Resurrection Edition
+ * Implements granular state detection, timeouts, and robust error handling.
+ */
 export const useHandTracking = () => {
-    // Store state in ref to avoid re-renders (loop reads this directly)
     const handDataRef = useRef({
         hands: [],
+        rawLandmarks: [],
         distance: 999,
         isHandshake: false
     })
 
     const videoRef = useRef(null)
-    const initRef = useRef(false) // Guard against React Strict Mode double-init
+    const initRef = useRef(false)
     const cameraRef = useRef(null)
-    const [debugText, setDebugText] = useState('Initializing...')
+    const [debugText, setDebugText] = useState('SYSTEM BOOT...')
+
+    // Helper to update the DOM preloader and internal state
+    const updateStatus = (text, progress, isError = false) => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`🦈 SHARK LOG [${timestamp}]: ${text}`);
+        setDebugText(text);
+
+        const bar = document.getElementById('bar');
+        const statusLabel = document.getElementById('status-text');
+        const errorDisplay = document.getElementById('error-msg');
+        const retryButton = document.getElementById('retry-btn');
+
+        if (bar) bar.style.width = `${progress}%`;
+        if (statusLabel) statusLabel.innerText = text;
+
+        if (isError) {
+            if (statusLabel) statusLabel.style.color = '#ff3333';
+            if (bar) bar.style.background = '#ff3333';
+            if (errorDisplay) {
+                errorDisplay.innerText = text;
+                errorDisplay.style.display = 'block';
+            }
+            if (retryButton) retryButton.style.display = 'block';
+        }
+    }
 
     useEffect(() => {
-        // CRITICAL: Prevent double initialization in React 18+ Strict Mode
-        if (initRef.current) return
-        initRef.current = true
+        if (initRef.current) return;
+        initRef.current = true;
 
-        console.log("🦈 SHARK LOG: Initializing MediaPipe Hands...")
-        const bar = document.getElementById('bar')
-        const preloader = document.getElementById('preloader')
-        if (bar) bar.style.width = '20%'
+        updateStatus("SYS: INITIALIZING ENGINE", 10);
+
+        // --- TIMEOUT CIRCUIT BREAKER (10S) ---
+        const timeoutId = setTimeout(() => {
+            if (!cameraRef.current) {
+                updateStatus("SYS ERROR: BOOT TIMEOUT - POSSIBLE NETWORK OR HARDWARE LOCK", 100, true);
+            }
+        }, 12000); // 12s for extra buffer on M1
 
         const hands = new Hands({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-            },
-        })
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+        });
 
         hands.setOptions({
             maxNumHands: 2,
-            modelComplexity: 0, // 0 = LITE (Fastest loading/inference). Crucial for M1 perf.
+            modelComplexity: 0, // LITE for speed
             minDetectionConfidence: 0.6,
             minTrackingConfidence: 0.6,
-        })
+        });
 
         hands.onResults((results) => {
-            // First result = loaded. Fade out preloader.
-            const bar = document.getElementById('bar')
-            const preloader = document.getElementById('preloader')
-            if (bar && bar.style.width !== '100%') {
-                bar.style.width = '100%'
+            // First success frame -> Hide preloader
+            const preloader = document.getElementById('preloader');
+            if (preloader && preloader.style.opacity !== '0' && !preloader.getAttribute('data-error')) {
+                updateStatus("SYS: CORE STABLE", 100);
                 setTimeout(() => {
-                    if (preloader) preloader.style.opacity = '0'
-                    setTimeout(() => { if (preloader) preloader.style.display = 'none' }, 500)
-                }, 500)
+                    preloader.style.opacity = '0';
+                    setTimeout(() => { preloader.style.display = 'none'; }, 500);
+                }, 800);
             }
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                console.log("🦈 HANDS FOUND:", results.multiHandLandmarks.length)
-                setDebugText(`Hands: ${results.multiHandLandmarks.length}`)
-
-                // Store RAW landmarks for gesture detection
-                const rawLandmarks = results.multiHandLandmarks
-
-                // Process landmarks for particle interaction
-                const processedHands = results.multiHandLandmarks.map(landmarks => {
-                    const p = landmarks[9] // Middle finger knuckle
-
-                    // Coordinate Normalization with Mirroring
-                    // MediaPipe: x (0..1 left->right), y (0..1 top->bottom)
-                    // Three.js: x (-1..1 left->right), y (1..-1 top->bottom)
-                    // Mirror mode: invert X so it feels natural
-                    return {
-                        x: (1.0 - p.x) * 2.0 - 1.0,
-                        y: (1.0 - p.y) * 2.0 - 1.0,
+                // Update internal refs for useFrame loop
+                handDataRef.current = {
+                    hands: results.multiHandLandmarks.map(l => ({
+                        x: (1.0 - l[9].x) * 2.0 - 1.0,
+                        y: (1.0 - l[9].y) * 2.0 - 1.0,
                         z: 0
-                    }
-                })
-
-                let distance = 999
-                let isHandshake = false
-
-                if (processedHands.length === 2) {
-                    const h1 = processedHands[0]
-                    const h2 = processedHands[1]
-                    distance = Math.sqrt(
-                        Math.pow(h1.x - h2.x, 2) +
-                        Math.pow(h1.y - h2.y, 2)
-                    )
-
-                    // Heuristic: d < 0.15
-                    if (distance < 0.15) {
-                        isHandshake = true
-                        console.log("🦈 HANDSHAKE DETECTED! Distance:", distance.toFixed(3))
-                    }
-                }
-
-                handDataRef.current = {
-                    hands: processedHands,
-                    rawLandmarks: rawLandmarks, // NEW: Raw data for gesture detection
-                    distance,
-                    isHandshake
-                }
-            } else {
-                handDataRef.current = {
-                    hands: [],
-                    rawLandmarks: [],
-                    distance: 999,
+                    })),
+                    rawLandmarks: results.multiHandLandmarks,
+                    distance: results.multiHandLandmarks.length === 2 ?
+                        Math.sqrt(Math.pow(results.multiHandLandmarks[0][9].x - results.multiHandLandmarks[1][9].x, 2) + Math.pow(results.multiHandLandmarks[0][9].y - results.multiHandLandmarks[1][9].y, 2)) : 999,
                     isHandshake: false
-                }
-                setDebugText('No hands detected')
+                };
+                setDebugText(`ACTIVE: ${results.multiHandLandmarks.length} HANDS`);
+            } else {
+                setDebugText('SCANNING AREA...');
+                handDataRef.current.hands = [];
+                handDataRef.current.rawLandmarks = [];
             }
-        })
+        });
 
-        // Setup camera
-        const setupCamera = async () => {
-            const bar = document.getElementById('bar')
-            if (bar) bar.style.width = '40%'
+        const startSystem = async () => {
             try {
+                updateStatus("SYS: REQUESTING CAMERA ACCESS", 30);
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 640, height: 480, frameRate: 60 } // Higher FR, lower complexity
-                })
-                if (bar) bar.style.width = '60%'
+                    video: { width: 640, height: 480, frameRate: 60 }
+                });
 
-                const video = document.createElement('video')
-                video.srcObject = stream
-                video.playsInline = true
-                await video.play()
-                videoRef.current = video
-
-                console.log("🦈 SHARK LOG: Starting Camera...")
+                updateStatus("SYS: INFUSING AI MODEL", 60);
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.style.display = 'none'; // Background stream
+                video.playsInline = true;
+                await video.play();
+                videoRef.current = video;
 
                 const camera = new Camera(video, {
                     onFrame: async () => {
                         if (video && video.videoWidth > 0) {
-                            await hands.send({ image: video })
+                            await hands.send({ image: video });
                         }
                     },
-                    width: 640,
-                    height: 480,
-                })
+                    width: 640, height: 480,
+                });
 
-                cameraRef.current = camera
+                cameraRef.current = camera;
 
-                await camera.start()
-                if (bar) bar.style.width = '80%'
-                console.log("🦈 SHARK LOG: Camera Started Successfully")
+                updateStatus("SYS: CONNECTING NEURAL PATHWAYS", 80);
+                await camera.start();
+
+                clearTimeout(timeoutId);
+                console.log("🦈 SHARK LOG: BOOT SUCCESSFUL");
             } catch (err) {
-                console.error("🦈 CRITICAL FAILURE: Camera refused to start", err)
-                setDebugText(`Camera Error: ${err.message}`)
-            }
-        }
+                clearTimeout(timeoutId);
+                const preloader = document.getElementById('preloader');
+                if (preloader) preloader.setAttribute('data-error', 'true');
 
-        setupCamera()
+                let errMsg = "CORE CRITICAL: " + err.message;
+                if (err.name === 'NotAllowedError') errMsg = "PERM DENIED: CAMERA ACCESS REJECTED";
+                if (err.name === 'NotFoundError') errMsg = "HARDWARE MISSING: NO CAMERA DETECTED";
+                if (err.name === 'NotReadableError') errMsg = "HARDWARE LOCKED: CAMERA IN USE BY ANOTHER APP";
+
+                updateStatus(errMsg, 100, true);
+            }
+        };
+
+        startSystem();
 
         return () => {
-            console.log("🦈 SHARK LOG: Cleaning up...")
-            if (cameraRef.current) {
-                cameraRef.current.stop()
-            }
+            clearTimeout(timeoutId);
+            if (cameraRef.current) cameraRef.current.stop();
             if (videoRef.current && videoRef.current.srcObject) {
-                videoRef.current.srcObject.getTracks().forEach(track => track.stop())
+                videoRef.current.srcObject.getTracks().forEach(track => track.stop());
             }
-            hands.close()
-        }
-    }, [])
+            hands.close();
+        };
+    }, []);
 
     return { handDataRef, debugText, videoRef }
 }

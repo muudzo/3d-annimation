@@ -71,14 +71,44 @@
       transition: width 0.3s ease;
       box-shadow: 0 0 10px #00ffff;
     }
+
+    .error-text {
+      color: #ff3333;
+      font-size: 12px;
+      margin-top: 15px;
+      font-family: monospace;
+      max-width: 400px;
+      display: none;
+      line-height: 1.5;
+    }
+
+    #retry-btn {
+      margin-top: 25px;
+      padding: 12px 24px;
+      background: transparent;
+      border: 1px solid #ff3333;
+      color: #ff3333;
+      cursor: pointer;
+      font-family: monospace;
+      display: none;
+      letter-spacing: 2px;
+      transition: all 0.3s ease;
+    }
+
+    #retry-btn:hover {
+      background: rgba(255, 51, 51, 0.1);
+      box-shadow: 0 0 15px rgba(255, 51, 51, 0.3);
+    }
   </style>
 
 <body>
   <div id="preloader">
-    <div class="glitch">Initializing Systems</div>
+    <div id="status-text" class="glitch">Initializing Systems</div>
     <div class="bar-container">
       <div id="bar"></div>
     </div>
+    <div id="error-msg" class="error-text"></div>
+    <button id="retry-btn" onclick="window.location.reload()">RETRY SYSTEM BOOT</button>
   </div>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
