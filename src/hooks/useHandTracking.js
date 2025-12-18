@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react'
 import { SystemState } from '../types/SystemState'
+import { detectGesture } from '../utils/gestureDetection'
 
 /**
  * useHandTracking - Validated State Machine Edition
@@ -21,6 +22,11 @@ export const useHandTracking = () => {
     const [systemState, setSystemState] = useState(SystemState.BOOTSTRAP)
     const [error, setError] = useState(null)
     const [debugText, setDebugText] = useState('SYSTEM BOOT...')
+
+    // Gesture Smoothing
+    const [detectedGesture, setDetectedGesture] = useState('SPHERE')
+    const gestureBufferRef = useRef([])
+    const GESTURE_CONFIDENCE_THRESHOLD = 15; // Frames
 
     useEffect(() => {
         if (initRef.current) return;
@@ -49,8 +55,19 @@ export const useHandTracking = () => {
             try {
                 transition(SystemState.LOADING_ASSETS);
 
-                // 1. Verify CDN Globals
-                if (!window.Hands || !window.Camera) {
+                // 1. Verify/Poll for CDN Globals (timeout 3s)
+                const waitForGlobals = () => new Promise((resolve, reject) => {
+                    const check = () => {
+                        if (window.Hands && window.Camera) return resolve();
+                        if (performance.now() > 5000) return reject(new Error("Timeout waiting for MediaPipe globals."));
+                        requestAnimationFrame(check);
+                    };
+                    check();
+                });
+
+                try {
+                    await waitForGlobals();
+                } catch (e) {
                     throw new Error("MediaPipe globals (Hands/Camera) not found. Check Internet/CDN.");
                 }
 
@@ -78,15 +95,31 @@ export const useHandTracking = () => {
                                 z: 0
                             })),
                             rawLandmarks: results.multiHandLandmarks,
-                            distance: results.multiHandLandmarks.length === 2 ?
-                                Math.sqrt(Math.pow(results.multiHandLandmarks[0][9].x - results.multiHandLandmarks[1][9].x, 2) + Math.pow(results.multiHandLandmarks[0][9].y - results.multiHandLandmarks[1][9].y, 2)) : 999,
-                            isHandshake: false
+                            distance: 999
                         };
-                        setDebugText(`ACTIVE: ${results.multiHandLandmarks.length} HANDS`);
+
+                        // --- GESTURE SMOOTHING ---
+                        const instantaneousGesture = detectGesture(results.multiHandLandmarks);
+                        gestureBufferRef.current.push(instantaneousGesture);
+
+                        if (gestureBufferRef.current.length > GESTURE_CONFIDENCE_THRESHOLD) {
+                            gestureBufferRef.current.shift();
+                        }
+
+                        // Check if buffer is uniform
+                        if (gestureBufferRef.current.length === GESTURE_CONFIDENCE_THRESHOLD) {
+                            const allMatch = gestureBufferRef.current.every(g => g === instantaneousGesture);
+                            if (allMatch) {
+                                setDetectedGesture(instantaneousGesture);
+                            }
+                        }
+
+                        // Update Debug Text with Stable Gesture
+                        // Note: Using a ref-based text would be cleaner to avoid re-renders,
+                        // but setDebugText is used for UI overlay, so it's OK.
+                        // We might want to debounce this as well.
                     } else {
-                        // On first result, if we are not ready, we *could* mark ready, 
-                        // but we wait for camera start success below.
-                        if (handDataRef.current.hands.length > 0) setDebugText('Scanning...');
+                        handDataRef.current.hands = [];
                     }
                 });
 
@@ -144,5 +177,6 @@ export const useHandTracking = () => {
         };
     }, []); // Run once
 
-    return { handDataRef, debugText, videoRef, systemState, error }
+    // Return detectedGesture for App Consumption
+    return { handDataRef, debugText, videoRef, systemState, error, detectedGesture }
 }

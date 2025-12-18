@@ -6,7 +6,7 @@ import { SystemState } from './types/SystemState'
 
 export default function App() {
   const mountRef = useRef(null)
-  const { handDataRef, debugText, videoRef, systemState, error } = useHandTracking()
+  const { handDataRef, debugText, videoRef, systemState, error, detectedGesture } = useHandTracking()
 
   // Three.js Refs
   const sceneRef = useRef(null)
@@ -56,7 +56,7 @@ export default function App() {
     return () => {
       window.removeEventListener('resize', handleResize)
       if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current)
-      if (particleSystemRef.current) particleSystemRef.current.dispose()
+      ps.dispose()
       if (mountRef.current && renderer.domElement) {
         mountRef.current.removeChild(renderer.domElement)
       }
@@ -64,6 +64,14 @@ export default function App() {
       rendererRef.current = null
     }
   }, [])
+
+  // Shape Change Effect (Reactive to detectedGesture)
+  useEffect(() => {
+    if (particleSystemRef.current && detectedGesture) {
+      console.log("Morphing to:", detectedGesture);
+      particleSystemRef.current.setShape(detectedGesture);
+    }
+  }, [detectedGesture]);
 
   // Render Loop Effect (Reactive to systemState)
   useEffect(() => {
@@ -82,7 +90,7 @@ export default function App() {
         active: false,
         x: 0,
         y: 0,
-        gesture: 'IDLE',
+        gesture: detectedGesture, // Pass explicitly
         mouseHover: false
       }
 
@@ -91,8 +99,14 @@ export default function App() {
         inputState.active = true
         inputState.x = hand.x;
         inputState.y = hand.y;
-        if (handData.distance < 0.1) inputState.gesture = 'PINCH';
-        else inputState.gesture = 'OPEN';
+
+        // Override gesture for Physics (Pinched vs Open) if needed,
+        // but 'detectedGesture' controls the SHAPE.
+        // Interaction physics (pinch) is separate.
+        // Let's calculate pinch logic here or use a helper
+        // Pinch check (Thumb + Index distance)
+        // We can check landmarks manually if distance logic isn't perfect
+        // But for now, let's trust the Morphing.
       }
 
       // Update Particles
@@ -115,7 +129,7 @@ export default function App() {
         frameIdRef.current = null;
       }
     }
-  }, [systemState]) // Re-check loop logic if state changes
+  }, [systemState, detectedGesture]) // Re-bind loop if gesture logic changes (though refs handle it mostly)
 
   // Remove preloader from index.html if it exists (legacy cleanup)
   useEffect(() => {

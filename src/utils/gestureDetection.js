@@ -1,117 +1,87 @@
 /**
  * Gesture Detection Engine
- * Pure mathematical heuristics - no ML models
+ * Counts extended fingers to trigger shape changes.
  */
 
-// MediaPipe Hand Landmark Indices
 const LANDMARKS = {
     WRIST: 0,
-    THUMB_TIP: 4,
+    THUMB_CMC: 1,
+    THUMB_MCP: 2,
     THUMB_IP: 3,
+    THUMB_TIP: 4,
+    INDEX_MCP: 5,
     INDEX_TIP: 8,
-    INDEX_PIP: 6,
+    MIDDLE_MCP: 9,
     MIDDLE_TIP: 12,
-    MIDDLE_PIP: 10,
+    RING_MCP: 13,
     RING_TIP: 16,
-    RING_PIP: 14,
-    PINKY_TIP: 20,
-    PINKY_PIP: 18
+    PINKY_MCP: 17,
+    PINKY_TIP: 20
 }
 
 /**
- * Check if a finger is extended (tip is further from wrist than PIP joint)
+ * Check if a finger is extended.
+ * For 4 fingers: Tip distance to wrist > MCP distance to wrist.
+ * For Thumb: Check if tip is away from palm plane (simplified check here).
  */
-const isFingerExtended = (landmarks, tipIdx, pipIdx) => {
-    const wrist = landmarks[LANDMARKS.WRIST]
-    const tip = landmarks[tipIdx]
-    const pip = landmarks[pipIdx]
+const isFingerExtended = (landmarks, fingerName) => {
+    const wrist = landmarks[LANDMARKS.WRIST];
 
-    const tipDist = Math.sqrt(
-        Math.pow(tip.x - wrist.x, 2) +
-        Math.pow(tip.y - wrist.y, 2)
-    )
-    const pipDist = Math.sqrt(
-        Math.pow(pip.x - wrist.x, 2) +
-        Math.pow(pip.y - wrist.y, 2)
-    )
+    if (fingerName === 'THUMB') {
+        const tip = landmarks[LANDMARKS.THUMB_TIP];
+        const ip = landmarks[LANDMARKS.THUMB_IP];
+        const mcp = landmarks[LANDMARKS.THUMB_MCP];
 
-    return tipDist > pipDist * 1.1 // 10% threshold
+        // Thumb extended if tip is further from MCP than IP is? 
+        // Or simple Vector check. Let's use x-distance from pinky MCP as a proxy for "open" hand width
+        // A safer heuristic for thumb is checking angle. 
+        // Simple heuristic: distance from Tip to Pinky MCP > distance from IP to Pinky MCP
+        const pinkyMCP = landmarks[LANDMARKS.PINKY_MCP];
+        const tipDist = Math.hypot(tip.x - pinkyMCP.x, tip.y - pinkyMCP.y);
+        const ipDist = Math.hypot(ip.x - pinkyMCP.x, ip.y - pinkyMCP.y);
+        return tipDist > ipDist;
+    }
+
+    let tipIdx, mcpIdx;
+    if (fingerName === 'INDEX') { tipIdx = LANDMARKS.INDEX_TIP; mcpIdx = LANDMARKS.INDEX_MCP; }
+    if (fingerName === 'MIDDLE') { tipIdx = LANDMARKS.MIDDLE_TIP; mcpIdx = LANDMARKS.MIDDLE_MCP; }
+    if (fingerName === 'RING') { tipIdx = LANDMARKS.RING_TIP; mcpIdx = LANDMARKS.RING_MCP; }
+    if (fingerName === 'PINKY') { tipIdx = LANDMARKS.PINKY_TIP; mcpIdx = LANDMARKS.PINKY_MCP; }
+
+    const tip = landmarks[tipIdx];
+    const mcp = landmarks[mcpIdx];
+
+    const tipDist = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
+    const mcpDist = Math.hypot(mcp.x - wrist.x, mcp.y - wrist.y);
+
+    // Tip must be significantly further than MCP
+    return tipDist > mcpDist * 1.2;
 }
 
-/**
- * Check if thumb is pointing up (Y-axis check)
- */
-const isThumbUp = (landmarks) => {
-    const thumbTip = landmarks[LANDMARKS.THUMB_TIP]
-    const thumbIp = landmarks[LANDMARKS.THUMB_IP]
-    const indexTip = landmarks[LANDMARKS.INDEX_TIP]
-    const middleTip = landmarks[LANDMARKS.MIDDLE_TIP]
-    const ringTip = landmarks[LANDMARKS.RING_TIP]
-    const pinkyTip = landmarks[LANDMARKS.PINKY_TIP]
-
-    // Thumb should be higher (lower Y in screen coords) than other fingers
-    const thumbIsHighest = (
-        thumbTip.y < indexTip.y &&
-        thumbTip.y < middleTip.y &&
-        thumbTip.y < ringTip.y &&
-        thumbTip.y < pinkyTip.y
-    )
-
-    // Thumb should be extended
-    const thumbExtended = thumbTip.y < thumbIp.y - 0.05
-
-    // Other fingers should be curled
-    const indexCurled = !isFingerExtended(landmarks, LANDMARKS.INDEX_TIP, LANDMARKS.INDEX_PIP)
-    const middleCurled = !isFingerExtended(landmarks, LANDMARKS.MIDDLE_TIP, LANDMARKS.MIDDLE_PIP)
-
-    return thumbIsHighest && thumbExtended && indexCurled && middleCurled
-}
-
-/**
- * Check for Peace Sign (Index + Middle extended, Ring + Pinky curled)
- */
-const isPeaceSign = (landmarks) => {
-    const indexExtended = isFingerExtended(landmarks, LANDMARKS.INDEX_TIP, LANDMARKS.INDEX_PIP)
-    const middleExtended = isFingerExtended(landmarks, LANDMARKS.MIDDLE_TIP, LANDMARKS.MIDDLE_PIP)
-    const ringCurled = !isFingerExtended(landmarks, LANDMARKS.RING_TIP, LANDMARKS.RING_PIP)
-    const pinkyCurled = !isFingerExtended(landmarks, LANDMARKS.PINKY_TIP, LANDMARKS.PINKY_PIP)
-
-    return indexExtended && middleExtended && ringCurled && pinkyCurled
-}
-
-/**
- * Main gesture detection function
- * @param {Array} hands - Array of hand landmark arrays from MediaPipe
- * @returns {string} - Gesture state: "THUMBS_UP", "PEACE", "TWO_HAND_CLASP", "IDLE"
- */
 export const detectGesture = (hands) => {
-    if (!hands || hands.length === 0) return "IDLE"
+    if (!hands || hands.length === 0) return "SPHERE"; // Default
 
-    // Two-Hand Clasp Check (highest priority)
-    if (hands.length === 2) {
-        const hand1Centroid = hands[0][LANDMARKS.WRIST]
-        const hand2Centroid = hands[1][LANDMARKS.WRIST]
+    const hand = hands[0]; // Primary hand
 
-        const distance = Math.sqrt(
-            Math.pow(hand1Centroid.x - hand2Centroid.x, 2) +
-            Math.pow(hand1Centroid.y - hand2Centroid.y, 2)
-        )
+    let fingersUp = 0;
+    if (isFingerExtended(hand, 'THUMB')) fingersUp++;
+    if (isFingerExtended(hand, 'INDEX')) fingersUp++;
+    if (isFingerExtended(hand, 'MIDDLE')) fingersUp++;
+    if (isFingerExtended(hand, 'RING')) fingersUp++;
+    if (isFingerExtended(hand, 'PINKY')) fingersUp++;
 
-        if (distance < 0.1) {
-            return "TWO_HAND_CLASP"
-        }
+    // Mapping based on requirements
+    // 2 Fingers -> Flower
+    // 3 Fingers -> Saturn
+    // 4 Fingers -> Heart
+    // 5 Fingers -> Fireworks
+    // Default -> Sphere
+
+    switch (fingersUp) {
+        case 2: return "FLOWER";
+        case 3: return "SATURN";
+        case 4: return "HEART";
+        case 5: return "FIREWORKS";
+        default: return "SPHERE";
     }
-
-    // Single hand gestures (use first hand)
-    const primaryHand = hands[0]
-
-    if (isThumbUp(primaryHand)) {
-        return "THUMBS_UP"
-    }
-
-    if (isPeaceSign(primaryHand)) {
-        return "PEACE"
-    }
-
-    return "IDLE"
 }
