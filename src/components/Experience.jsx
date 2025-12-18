@@ -1,6 +1,7 @@
 ```javascript
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stats } from '@react-three/drei'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import { CPUParticles } from './CPUParticles'
 import { DebugOverlay } from './DebugOverlay'
 import { useHandTracking } from '../hooks/useHandTracking'
@@ -44,18 +45,28 @@ export const Experience = () => {
       
       <Canvas
         dpr={1} 
-        camera={{ position: [0, 0, 10], fov: 60 }}
+        camera={{ position: [0, 0, 15], fov: 60 }}
         gl={{ 
             antialias: false, 
             powerPreference: "high-performance",
             alpha: false 
         }}
       >
-        <color attach="background" args={['#050505']} />
+        <color attach="background" args={['#000000']} />
         
         <CPUParticles handDataRef={handDataRef} />
         
-        <OrbitControls makeDefault />
+        {/* Cyberpunk Post-Processing */}
+        <EffectComposer>
+          <Bloom 
+            intensity={1.5}
+            luminanceThreshold={0.2}
+            luminanceSmoothing={0.9}
+            mipmapBlur={true}
+          />
+        </EffectComposer>
+        
+        <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
         <Stats />
       </Canvas>
     </>
