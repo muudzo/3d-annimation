@@ -1,10 +1,9 @@
 import { useRef, useEffect, useState } from 'react'
-import { Hands } from '@mediapipe/hands'
-import { Camera } from '@mediapipe/camera_utils'
 
 /**
  * useHandTracking - Failsafe Resurrection Edition
  * Implements granular state detection, timeouts, and robust error handling.
+ * NOW USING CDN GLOBALS (window.Hands, window.Camera)
  */
 export const useHandTracking = () => {
     const handDataRef = useRef({
@@ -50,6 +49,12 @@ export const useHandTracking = () => {
 
         updateStatus("SYS: INITIALIZING ENGINE", 10);
 
+        // Verify CDN Loaded
+        if (!window.Hands || !window.Camera) {
+            updateStatus("SYS ERROR: AI MODULES NOT FOUND. CHECK INTERNET.", 100, true);
+            return;
+        }
+
         // --- TIMEOUT CIRCUIT BREAKER (10S) ---
         const timeoutId = setTimeout(() => {
             if (!cameraRef.current) {
@@ -57,7 +62,7 @@ export const useHandTracking = () => {
             }
         }, 12000); // 12s for extra buffer on M1
 
-        const hands = new Hands({
+        const hands = new window.Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
         });
 
@@ -115,7 +120,7 @@ export const useHandTracking = () => {
                 await video.play();
                 videoRef.current = video;
 
-                const camera = new Camera(video, {
+                const camera = new window.Camera(video, {
                     onFrame: async () => {
                         if (video && video.videoWidth > 0) {
                             await hands.send({ image: video });
