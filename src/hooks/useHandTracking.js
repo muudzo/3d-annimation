@@ -21,24 +21,35 @@ export const useHandTracking = () => {
         initRef.current = true
 
         console.log("🦈 SHARK LOG: Initializing MediaPipe Hands...")
+        const bar = document.getElementById('bar')
+        const preloader = document.getElementById('preloader')
+        if (bar) bar.style.width = '20%'
 
         const hands = new Hands({
             locateFile: (file) => {
-                // VITAL FIX: Fetch the WASM/TFLite files from a CDN, not your local server.
-                // This fixes the "Silent 404" error where the model never loads.
                 return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
             },
         })
 
         hands.setOptions({
             maxNumHands: 2,
-            modelComplexity: 1, // 0 = Fastest, 1 = Balanced. Keep at 1 for accuracy.
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5,
+            modelComplexity: 0, // 0 = LITE (Fastest loading/inference). Crucial for M1 perf.
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6,
         })
 
         hands.onResults((results) => {
-            // DEBUG LOG: If this prints, the AI is working.
+            // First result = loaded. Fade out preloader.
+            const bar = document.getElementById('bar')
+            const preloader = document.getElementById('preloader')
+            if (bar && bar.style.width !== '100%') {
+                bar.style.width = '100%'
+                setTimeout(() => {
+                    if (preloader) preloader.style.opacity = '0'
+                    setTimeout(() => { if (preloader) preloader.style.display = 'none' }, 500)
+                }, 500)
+            }
+
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 console.log("🦈 HANDS FOUND:", results.multiHandLandmarks.length)
                 setDebugText(`Hands: ${results.multiHandLandmarks.length}`)
@@ -98,10 +109,13 @@ export const useHandTracking = () => {
 
         // Setup camera
         const setupCamera = async () => {
+            const bar = document.getElementById('bar')
+            if (bar) bar.style.width = '40%'
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 640, height: 480, frameRate: 30 }
+                    video: { width: 640, height: 480, frameRate: 60 } // Higher FR, lower complexity
                 })
+                if (bar) bar.style.width = '60%'
 
                 const video = document.createElement('video')
                 video.srcObject = stream
@@ -124,6 +138,7 @@ export const useHandTracking = () => {
                 cameraRef.current = camera
 
                 await camera.start()
+                if (bar) bar.style.width = '80%'
                 console.log("🦈 SHARK LOG: Camera Started Successfully")
             } catch (err) {
                 console.error("🦈 CRITICAL FAILURE: Camera refused to start", err)
