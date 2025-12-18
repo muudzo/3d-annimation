@@ -1,13 +1,87 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>m1-particles</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>m1-particles</title>
+  <!-- DevOps: DNS Prefetch & Preconnect for MediaPipe Assets -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+    }
+
+    #preloader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      color: #00ffff;
+      transition: opacity 0.5s ease;
+    }
+
+    .glitch {
+      font-size: 14px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.3;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
+    .bar-container {
+      width: 200px;
+      height: 2px;
+      background: rgba(0, 255, 255, 0.1);
+      margin-top: 20px;
+      position: relative;
+    }
+
+    #bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      background: #00ffff;
+      width: 0%;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 10px #00ffff;
+    }
+  </style>
+
+<body>
+  <div id="preloader">
+    <div class="glitch">Initializing Systems</div>
+    <div class="bar-container">
+      <div id="bar"></div>
+    </div>
+  </div>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
