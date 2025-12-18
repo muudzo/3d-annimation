@@ -5,7 +5,7 @@ import { generateGlowTexture } from '../utils/textureGenerator';
 
 // --- CONFIGURATION ---
 const CONFIG = {
-    particleCount: 50000,
+    particleCount: 20000,
     lerpSpeed: 0.08, // Slightly slower for smoother transitions
     noiseStrength: 0.15, // Drift intensity in IDLE
     colorTransitionSpeed: 0.05,
