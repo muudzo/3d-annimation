@@ -180,13 +180,23 @@ export class ParticleSystem {
         const positions = this.geometry.attributes.position.array;
 
         // Input Forces (Normalized -1 to 1 => Scale to World Bounds approx 60-100)
-        let interactX = 0, interactY = 0, active = false, repel = false;
+        let interactX = 0, interactY = 0, active = false, repel = false, attract = false;
 
         if (inputState && inputState.active) {
             active = true;
             interactX = inputState.x * 80; // Scale to scene
             interactY = inputState.y * 80;
-            repel = inputState.gesture === 'OPEN' || inputState.mouseHover; // Logic depending on input manager
+
+            // Logic:
+            // If FIREWORKS/OPEN -> Repel
+            // If PINCHING -> Attract
+            // Else -> Neutral/Idle (just shape morph)
+
+            if (inputState.gesture === 'OPEN' || inputState.mouseHover) {
+                repel = true;
+            } else if (inputState.isPinching) {
+                attract = true;
+            }
         }
 
         for (let i = 0; i < this.count; i++) {
@@ -204,33 +214,43 @@ export class ParticleSystem {
             if (active) {
                 const dx = positions[i3] - interactX;
                 const dy = positions[i3 + 1] - interactY;
-                const dz = positions[i3 + 2]; // Assume 2D interaction plane at Z=0 for simplicity
+                const dz = positions[i3 + 2];
                 const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                const interactRadius = 60; // Larger influence area
 
-                if (dist < 40) {
-                    const force = (40 - dist) / 40;
+                if (dist < interactRadius) {
+                    const force = (interactRadius - dist) / interactRadius;
+
                     if (repel) {
-                        // Push away
-                        tx += dx * force * 5.0;
-                        ty += dy * force * 5.0;
-                        tz += dz * force * 5.0;
-                    } else {
-                        // Attract (Pinch) - Move TARGET towards center, not current pos (to avoid implosion sticking)
-                        tx = interactX + (Math.random() - 0.5) * 10;
-                        ty = interactY + (Math.random() - 0.5) * 10;
-                        // tz remains similar
+                        // REPEL: Push away from cursor/hand
+                        // Use exponential falloff for impact
+                        const f = force * 8.0;
+                        tx += dx * f;
+                        ty += dy * f;
+                        tz += dz * f;
+                    } else if (attract) { // Changed from 'else' to 'else if (attract)'
+                        // ATTRACT (PINCH): Pull towards center but keep volume
+                        // Pull towards interaction point
+                        const f = force * 2.5;
+                        tx -= dx * f;
+                        ty -= dy * f;
+                        tz -= dz * f;
+
+                        // Add swirl/noise to prevent collapse to singularity
+                        tx += (Math.random() - 0.5) * 5.0;
+                        ty += (Math.random() - 0.5) * 5.0;
                     }
                 }
             }
 
-            // Standard Lerp
+            // Standard Lerp with variable speed for organic movement
             positions[i3] += (tx - positions[i3]) * speed;
             positions[i3 + 1] += (ty - positions[i3 + 1]) * speed;
             positions[i3 + 2] += (tz - positions[i3 + 2]) * speed;
 
             // Update Colors (Gradient effect based on index/pos)
-            colorArray[i3] = this.currentColor.r + Math.sin(time + i) * 0.1;
-            colorArray[i3 + 1] = this.currentColor.g + Math.cos(time + i) * 0.1;
+            colorArray[i3] = this.currentColor.r + Math.sin(time * 2.0 + i) * 0.1; // Pulsing color
+            colorArray[i3 + 1] = this.currentColor.g + Math.cos(time * 1.5 + i) * 0.1;
             colorArray[i3 + 2] = this.currentColor.b;
         }
 
