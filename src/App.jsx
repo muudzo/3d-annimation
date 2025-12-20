@@ -4,6 +4,7 @@ import { ParticleSystem } from './systems/ParticleSystem'
 import { useHandTracking } from './hooks/useHandTracking'
 import { SystemState } from './types/SystemState'
 import { AudioSystem } from './systems/AudioSystem'
+import { Interface } from './components/Interface'
 
 export default function App() {
   const mountRef = useRef(null)
@@ -193,46 +194,20 @@ export default function App() {
 
   return (
     <>
+      {/* 3D Canvas - Always rendered but might be hidden behind overlay */}
       <div
         ref={mountRef}
-        onClick={handleStartAudio}
-        style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0, zIndex: 1, cursor: 'pointer' }}
+        style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0, zIndex: 1 }}
       />
 
-      {/* REACT CONTROLLED OVERLAY */}
-      {(systemState !== SystemState.READY) && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          background: 'black', color: '#00ffff', display: 'flex', flexDirection: 'column',
-          justifyContent: 'center', alignItems: 'center', zIndex: 9999,
-          fontFamily: 'monospace', letterSpacing: '2px'
-        }}>
-          {systemState === SystemState.ERROR ? (
-            <>
-              <div style={{ color: '#ff3333', fontSize: '24px', marginBottom: '20px' }}>SYSTEM FAILURE</div>
-              <div style={{ color: '#ff3333', maxWidth: '600px', textAlign: 'center' }}>{error}</div>
-              <button onClick={() => window.location.reload()} style={{
-                marginTop: '30px', background: 'transparent', border: '1px solid #ff3333',
-                color: '#ff3333', padding: '10px 20px', cursor: 'pointer', fontFamily: 'monospace'
-              }}>REBOOT SYSTEM</button>
-            </>
-          ) : (
-            <>
-              <div className="glitch">{systemState}...</div>
-              <div style={{ marginTop: '20px', fontSize: '12px', opacity: 0.7 }}>{debugText}</div>
-              {/* Optional: Add a CSS loader here if desired */}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* HUD if READY */}
-      {systemState === SystemState.READY && (
-        <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10, color: '#00ffff', fontFamily: 'monospace' }}>
-          <div>SYSTEM STATUS: ONLINE</div>
-          <div>DEBUG: {debugText}</div>
-        </div>
-      )}
+      {/* UI Overlay System */}
+      <Interface
+        systemState={systemState}
+        error={error}
+        debugText={debugText}
+        detectedGesture={detectedGesture}
+        onStart={handleStartAudio}
+      />
     </>
   )
 }
